@@ -1,9 +1,7 @@
 pipeline {
     agent any
 
-    tools {
-        sonarQubeScanner 'SonarQubeServer'  // Name must match the one configured in Jenkins UI
-    }
+    
 
     environment {
         SONARQUBE = 'SonarQubeServer'
