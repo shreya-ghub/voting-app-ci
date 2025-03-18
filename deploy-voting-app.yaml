@@ -1,0 +1,12 @@
+- name: Deploy Example Voting App on Kubernetes
+  hosts: localhost
+  tasks:
+    - name: Apply Vote Deployment
+      shell: kubectl apply -f ~/voting-app-ci/k8s-deployment/vote.yaml
+
+    - name: Apply Result Deployment
+      shell: kubectl apply -f ~/voting-app-ci/k8s-deployment/result.yaml
+
+    - name: Apply Worker Deployment
+      shell: kubectl apply -f ~/voting-app-ci/k8s-deployment/worker.yaml
+
