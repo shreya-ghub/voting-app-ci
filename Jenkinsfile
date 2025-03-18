@@ -1,48 +1,52 @@
 pipeline {
     agent any
 
+    tools {
+        sonarQubeScanner 'SonarScanner'  // Name must match the one configured in Jenkins UI
+    }
+
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds')
-        SONARQUBE_SERVER = 'SonarQubeServer'
-        DOCKER_IMAGE_VOTE = "shreyaramki/vote"
-        DOCKER_IMAGE_RESULT = "shreyaramki/result"
-        DOCKER_IMAGE_WORKER = "shreyaramki/worker"
+        SONARQUBE = 'SonarQubeServer'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds') // Replace with actual Jenkins credential ID
     }
 
     stages {
 
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/shreya-ghub/voting-app-ci.git'
+                git url: 'https://github.com/shreya-ghub/voting-app-ci.git', branch: 'main'
             }
         }
 
         stage('SonarQube Scan') {
             steps {
-                withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    sh 'sonar-scanner -Dsonar.projectKey=voting-app -Dsonar.sources=example-voting-app/'
+                withSonarQubeEnv("${SONARQUBE}") {
+                    sh "sonar-scanner -Dsonar.projectKey=voting-app -Dsonar.sources=example-voting-app/"
                 }
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                sh '''
-                docker build -t $DOCKER_IMAGE_VOTE ./example-voting-app/vote
-                docker build -t $DOCKER_IMAGE_RESULT ./example-voting-app/result
-                docker build -t $DOCKER_IMAGE_WORKER ./example-voting-app/worker
-                '''
+                script {
+                    sh '''
+                    cd example-voting-app
+                    docker build -t shreyaramki/vote:latest ./vote
+                    docker build -t shreyaramki/result:latest ./result
+                    docker build -t shreyaramki/worker:latest ./worker
+                    '''
+                }
             }
         }
 
         stage('Push Docker Images to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                script {
                     sh '''
-                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                    docker push $DOCKER_IMAGE_VOTE
-                    docker push $DOCKER_IMAGE_RESULT
-                    docker push $DOCKER_IMAGE_WORKER
+                    echo "$DOCKERHUB_CREDENTIALS_PSW" | docker login -u "$DOCKERHUB_CREDENTIALS_USR" --password-stdin
+                    docker push shreyaramki/vote:latest
+                    docker push shreyaramki/result:latest
+                    docker push shreyaramki/worker:latest
                     docker logout
                     '''
                 }
@@ -52,16 +56,18 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
-                kubectl apply -f k8s-deployment/vote.yaml
-                kubectl apply -f k8s-deployment/result.yaml
-                kubectl apply -f k8s-deployment/worker.yaml
+                cd example-voting-app
+                kubectl apply -f k8s-specifications/
                 '''
             }
         }
 
         stage('Run Ansible Playbook') {
             steps {
-                sh 'ansible-playbook -i inventory deploy-voting-app.yaml'
+                sh '''
+                cd ansible
+                ansible-playbook -i inventory.ini playbook.yml
+                '''
             }
         }
     }
