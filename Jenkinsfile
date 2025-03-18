@@ -4,7 +4,7 @@ pipeline {
     
 
     environment {
-        SONARQUBE = 'SonarQubeServer'
+        SONARQUBE = 'sonarqube'
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-creds') // Replace with actual Jenkins credential ID
     }
 
